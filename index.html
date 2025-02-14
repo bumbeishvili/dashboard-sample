@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Analytics Dashboard</title>
+    <link rel="stylesheet" href="index.css">
+    <!-- Highcharts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/sankey.js"></script>
+    <script src="https://code.highcharts.com/modules/organization.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/maps/modules/map.js"></script>
+    <script src="https://code.highcharts.com/mapdata/custom/world.js"></script>
+    <!-- html2pdf library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- D3 and d3-org-chart -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-org-chart@2.7.0/build/d3-org-chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.0.0/build/d3-flextree.js"></script>
+    <!-- Add html2canvas and jsPDF libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        .node-container {
+            height: 100%;
+            width: 100%;
+            border-radius: 3px;
+            background-color: white;
+            padding: 10px;
+        }
+        .node-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+        }
+        .node-details {
+            margin-left: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .node-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .node-position {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        .node-department {
+            font-size: 11px;
+            color: #95a5a6;
+        }
+
+        .metric-icon {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px;
+        }
+
+        .metric-icon path {
+            fill: currentColor;
+        }
+
+        .metric-card:nth-child(1) { --icon-color: #FF6B6B; }
+        .metric-card:nth-child(2) { --icon-color: #4ECDC4; }
+        .metric-card:nth-child(3) { --icon-color: #45B7D1; }
+        .metric-card:nth-child(4) { --icon-color: #96CEB4; }
+        .metric-card:nth-child(5) { --icon-color: #FFEEAD; }
+        .metric-card:nth-child(6) { --icon-color: #D4A5A5; }
+        .metric-card:nth-child(7) { --icon-color: #9B59B6; }
+        .metric-card:nth-child(8) { --icon-color: #3498DB; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>
+                <svg class="dashboard-logo" width="32" height="32" viewBox="0 0 24 24">
+                    <path fill="#2c3e50" d="M3,3H21V5H3V3M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15M3,19H21V21H3V19Z"/>
+                </svg>
+                HR Analytics Dashboard
+                <button id="downloadPDF" class="download-btn">
+                    <svg class="download-icon" width="24" height="24" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
+                    </svg>
+                    Download PDF
+                </button>
+            </h1>
+            <div class="filters">
+                <select id="departmentFilter">
+                    <option value="all">All Departments</option>
+                </select>
+                <select id="locationFilter">
+                    <option value="all">All Locations</option>
+                </select>
+                <select id="jobFilter">
+                    <option value="all">All Positions</option>
+                </select>
+            </div>
+        </header>
+        
+        <div class="metrics-container">
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+                </svg>
+                <h3>Total Employees</h3>
+                <div id="totalEmployees" class="metric-value"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M11.8,10.9c-2.27-0.59-3-1.2-3-2.15c0-1.09,1.01-1.85,2.7-1.85c1.78,0,2.44,0.85,2.5,2.1h2.21 c-0.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94,0.42-3.5,1.68-3.5,3.61c0,2.31,1.91,3.46,4.7,4.13c2.5,0.6,3,1.48,3,2.41 c0,0.69-0.49,1.79-2.7,1.79c-2.06,0-2.87-0.92-2.98-2.1h-2.2c0.12,2.19,1.76,3.42,3.68,3.83V21h3v-2.15 c1.95-0.37,3.5-1.5,3.5-3.55C16.5,12.46,14.07,11.49,11.8,10.9z"/>
+                </svg>
+                <h3>Average Salary</h3>
+                <div id="avgSalary" class="metric-value"></div>
+                <div id="salaryTrend" class="metric-trend"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M6.5,2C8.46,2 10.13,3.25 10.74,5H22V8H10.74C10.13,9.75 8.46,11 6.5,11C4.54,11 2.87,9.75 2.26,8H2V5H2.26C2.87,3.25 4.54,2 6.5,2M6.5,5A2,2 0 0,0 4.5,7A2,2 0 0,0 6.5,9A2,2 0 0,0 8.5,7A2,2 0 0,0 6.5,5M6.5,13C8.46,13 10.13,14.25 10.74,16H22V19H10.74C10.13,20.75 8.46,22 6.5,22C4.54,22 2.87,20.75 2.26,19H2V16H2.26C2.87,14.25 4.54,13 6.5,13M6.5,16A2,2 0 0,0 4.5,18A2,2 0 0,0 6.5,20A2,2 0 0,0 8.5,18A2,2 0 0,0 6.5,16M17.5,13C19.46,13 21.13,14.25 21.74,16H22V19H21.74C21.13,20.75 19.46,22 17.5,22C15.54,22 13.87,20.75 13.26,19H13V16H13.26C13.87,14.25 15.54,13 17.5,13M17.5,16A2,2 0 0,0 15.5,18A2,2 0 0,0 17.5,20A2,2 0 0,0 19.5,18A2,2 0 0,0 17.5,16Z"/>
+                </svg>
+                <h3>Departments</h3>
+                <div id="totalDepartments" class="metric-value"></div>
+                <div id="largestDept" class="metric-subtitle"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M17.9,17.39C17.64,16.59 16.89,16 16,16H15V13A1,1 0 0,0 14,12H8V10H10A1,1 0 0,0 11,9V7H13A2,2 0 0,0 15,5V4.59C17.93,5.77 20,8.64 20,12C20,14.08 19.2,15.97 17.9,17.39M11,19.93C7.05,19.44 4,16.08 4,12C4,11.38 4.08,10.78 4.21,10.21L9,15V16A2,2 0 0,0 11,18M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                </svg>
+                <h3>Countries</h3>
+                <div id="totalCountries" class="metric-value"></div>
+                <div id="topLocation" class="metric-subtitle"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
+                </svg>
+                <h3>Avg Tenure</h3>
+                <div id="avgTenure" class="metric-value"></div>
+                <div id="seniorEmployee" class="metric-subtitle"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M3,22L4.5,20.5L6,22L7.5,20.5L9,22L10.5,20.5L12,22L13.5,20.5L15,22L16.5,20.5L18,22L19.5,20.5L21,22V2L19.5,3.5L18,2L16.5,3.5L15,2L13.5,3.5L12,2L10.5,3.5L9,2L7.5,3.5L6,2L4.5,3.5L3,2M18,9H6V7H18M18,13H6V11H18M18,17H6V15H18V17Z"/>
+                </svg>
+                <h3>Sales Commission</h3>
+                <div id="avgCommission" class="metric-value"></div>
+                <div id="topPerformer" class="metric-subtitle"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M5,9.5L7.5,14H2.5L5,9.5M3,4H7V8H3V4M5,20A2,2 0 0,0 7,18A2,2 0 0,0 5,16A2,2 0 0,0 3,18A2,2 0 0,0 5,20M9,5V7H21V5H9M9,19H21V17H9V19M9,13H21V11H9V13Z"/>
+                </svg>
+                <h3>Job Levels</h3>
+                <div id="jobLevels" class="metric-value"></div>
+                <div id="commonJob" class="metric-subtitle"></div>
+            </div>
+            <div class="metric-card">
+                <svg class="metric-icon" viewBox="0 0 24 24">
+                    <path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3M7,7H17V5H19V19H5V5H7V7M17,11H7V9H17V11M15,15H7V13H15V15Z"/>
+                </svg>
+                <h3>Hiring Trend</h3>
+                <div id="recentHires" class="metric-value"></div>
+                <div id="peakHiring" class="metric-subtitle"></div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Salary Distribution by Department</h3>
+                    <div id="salaryChart"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Organization Structure</h3>
+                    <div id="orgChart"></div>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Employees by Location</h3>
+                    <div id="locationMap"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Department Distribution</h3>
+                    <div id="deptChart"></div>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Salary Ranges</h3>
+                    <div id="salaryRangeChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="index.js"></script>
+</body>
+</html> 
